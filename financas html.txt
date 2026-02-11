@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão Financeira 360° - Com Aba Bad Decisions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        .tab-active { border-bottom: 2px solid #6366f1; color: #6366f1; font-weight: 700; }
+        .card-glow-bad { box-shadow: 0 0 15px rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+        .status-pulse { width: 10px; height: 10px; background: #10b981; border-radius: 50%; display: inline-block; margin-right: 8px; animation: pulse 2s infinite; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Financial Command Center</h1>
+                <p class="text-slate-500 flex items-center mt-1">
+                    <span class="status-pulse"></span> Sistema de Sincronização Ativo (9h, 14h, 20h)
+                </p>
+            </div>
+            <div class="flex gap-3">
+                <input type="file" id="excelInput" class="hidden" accept=".xlsx, .xls">
+                <button onclick="document.getElementById('excelInput').click()" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-slate-200 text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Importar Planilha Diária
+                </button>
+            </div>
+        </div>
+
+        <!-- Navegação por Abas -->
+        <div class="flex border-b border-slate-200 mb-8 gap-8 overflow-x-auto whitespace-nowrap">
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="pb-3 text-sm transition-all tab-active">Visão Geral</button>
+            <button onclick="switchTab('bad-decisions')" id="btn-bad-decisions" class="pb-3 text-sm text-slate-500 hover:text-red-500 transition-all">🚩 Bad Decisions</button>
+        </div>
+
+        <!-- Conteúdo: DASHBOARD -->
+        <div id="tab-dashboard" class="block">
+            <!-- Cards de Categoria -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <span class="text-xs font-bold text-blue-500 uppercase">Home</span>
+                    <p id="val-home" class="text-xl font-bold text-slate-800 mt-1">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <span class="text-xs font-bold text-purple-500 uppercase">Business</span>
+                    <p id="val-business" class="text-xl font-bold text-slate-800 mt-1">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <span class="text-xs font-bold text-pink-500 uppercase">Myself</span>
+                    <p id="val-myself" class="text-xl font-bold text-slate-800 mt-1">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <span class="text-xs font-bold text-emerald-500 uppercase">Invest</span>
+                    <p id="val-invest" class="text-xl font-bold text-slate-800 mt-1">R$ 0,00</p>
+                </div>
+                <div class="bg-red-50 p-5 rounded-2xl border border-red-100 shadow-sm card-glow-bad">
+                    <span class="text-xs font-bold text-red-600 uppercase">Bad Decisions</span>
+                    <p id="val-bad" class="text-xl font-bold text-red-700 mt-1">R$ 0,00</p>
+                </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200">
+                    <h3 class="font-bold text-slate-700 mb-6 flex justify-between items-center">
+                        Distribuição por Categoria
+                        <span class="text-xs font-normal text-slate-400 italic">Atualizado via Excel</span>
+                    </h3>
+                    <canvas id="mainChart" height="120"></canvas>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200">
+                    <h3 class="font-bold text-slate-700 mb-6 text-center">Impacto de Erros</h3>
+                    <div class="relative flex justify-center items-center h-48">
+                        <canvas id="badChart"></canvas>
+                    </div>
+                    <div class="mt-4 text-center">
+                        <p class="text-xs text-slate-500">Porcentagem do orçamento perdido em decisões evitáveis.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conteúdo: BAD DECISIONS DETAILS -->
+        <div id="tab-bad-decisions" class="hidden">
+            <div class="bg-white rounded-2xl border border-red-100 overflow-hidden shadow-sm">
+                <div class="p-6 bg-red-50 border-b border-red-100">
+                    <h2 class="text-lg font-bold text-red-800">Memorial de Erros Financeiros</h2>
+                    <p class="text-sm text-red-600/70">Análise de gastos que não agregaram valor real.</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase">Data</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase">Decisão / Item</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase">Motivo do Arrependimento</th>
+                                <th class="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase">Prejuízo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="badDecisionsBody" class="divide-y divide-slate-100">
+                            <!-- Inserido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notificações Timeline -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-slate-100/50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-600">09:00 - Morning Sync</span>
+                <div id="status-09" class="h-2 w-2 rounded-full bg-green-500"></div>
+            </div>
+            <div class="bg-slate-100/50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-600">14:00 - Business Audit</span>
+                <div id="status-14" class="h-2 w-2 rounded-full bg-amber-500"></div>
+            </div>
+            <div class="bg-slate-100/50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-600">20:00 - Daily Recap</span>
+                <div id="status-20" class="h-2 w-2 rounded-full bg-slate-300"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Alerta de Horário -->
+    <div id="timeModal" class="fixed inset-0 bg-slate-900/60 hidden backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl transform transition-all">
+            <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-3xl mb-6 mx-auto">⏰</div>
+            <h2 id="modalTitle" class="text-2xl font-bold text-slate-800 text-center mb-2">Hora do Check-in!</h2>
+            <p id="modalText" class="text-slate-500 text-center mb-8 leading-relaxed">São 14:00. Mantenha a confiabilidade dos dados atualizando os gastos do período agora via Excel.</p>
+            <button onclick="closeModal()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg">Entendido, vou atualizar</button>
+        </div>
+    </div>
+
+    <script>
+        let mainChart, badChart;
+        let activeTab = 'dashboard';
+        
+        let stats = {
+            home: 5200.00,
+            business: 18500.00,
+            myself: 1450.00,
+            invest: 42000.00,
+            bad: 850.00
+        };
+
+        let badDecisionsList = [
+            { date: '2023-10-25', item: 'Assinatura esquecida', reason: 'Não utilizado há 6 meses', value: 89.90 },
+            { date: '2023-10-26', item: 'Juros Cartão', reason: 'Esquecimento de data de vencimento', value: 145.20 }
+        ];
+
+        function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById('tab-dashboard').style.display = tab === 'dashboard' ? 'block' : 'none';
+            document.getElementById('tab-bad-decisions').style.display = tab === 'bad-decisions' ? 'block' : 'none';
+            
+            document.getElementById('btn-dashboard').className = tab === 'dashboard' ? 'pb-3 text-sm tab-active' : 'pb-3 text-sm text-slate-500';
+            document.getElementById('btn-bad-decisions').className = tab === 'bad-decisions' ? 'pb-3 text-sm tab-active text-red-500' : 'pb-3 text-sm text-slate-500 hover:text-red-500';
+        }
+
+        // Sistema de Notificação
+        function checkTimeAlerts() {
+            const now = new Date();
+            const h = now.getHours();
+            const m = now.getMinutes();
+            
+            // Ativa modal exatamente no minuto zero das horas: 9, 14, 20
+            if ((h === 9 || h === 14 || h === 20) && m === 0) {
+                const modal = document.getElementById('timeModal');
+                const text = document.getElementById('modalText');
+                
+                if(h === 9) text.innerText = "Bom dia! Hora de lançar o café da manhã e despesas da casa (Home Sweet Home).";
+                if(h === 14) text.innerText = "Check-in da tarde! Atualize as entradas e saídas do Business.";
+                if(h === 20) text.innerText = "Fechamento do dia! Avalie se houve alguma Bad Decision hoje.";
+                
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('timeModal').classList.add('hidden');
+        }
+
+        // Processamento de Excel
+        document.getElementById('excelInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet);
+                
+                json.forEach(row => {
+                    const cat = String(row.Categoria || "").toLowerCase();
+                    const val = parseFloat(row.Valor) || 0;
+                    
+                    if(cat.includes('home')) stats.home += val;
+                    else if(cat.includes('business')) stats.business += val;
+                    else if(cat.includes('myself')) stats.myself += val;
+                    else if(cat.includes('invest')) stats.invest += val;
+                    else if(cat.includes('bad') || cat.includes('decisao')) {
+                        stats.bad += val;
+                        badDecisionsList.unshift({
+                            date: new Date().toLocaleDateString('sv-SE'),
+                            item: row.Item || row.Descrição || 'Novo Gasto',
+                            reason: row.Motivo || 'Lançado via Planilha',
+                            value: val
+                        });
+                    }
+                });
+                
+                updateUI();
+                renderBadDecisions();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function updateUI() {
+            document.getElementById('val-home').innerText = stats.home.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+            document.getElementById('val-business').innerText = stats.business.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+            document.getElementById('val-myself').innerText = stats.myself.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+            document.getElementById('val-invest').innerText = stats.invest.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+            document.getElementById('val-bad').innerText = stats.bad.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+            
+            updateCharts();
+        }
+
+        function renderBadDecisions() {
+            const body = document.getElementById('badDecisionsBody');
+            body.innerHTML = badDecisionsList.map(item => `
+                <tr class="hover:bg-red-50/30 transition-colors">
+                    <td class="px-6 py-4 text-sm text-slate-500">${item.date}</td>
+                    <td class="px-6 py-4 text-sm font-bold text-slate-700">${item.item}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500">${item.reason}</td>
+                    <td class="px-6 py-4 text-right text-sm font-bold text-red-600">R$ ${item.value.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function initCharts() {
+            const ctxMain = document.getElementById('mainChart').getContext('2d');
+            mainChart = new Chart(ctxMain, {
+                type: 'bar',
+                data: {
+                    labels: ['Home', 'Business', 'Myself', 'Invest', 'Bad Decisions'],
+                    datasets: [{
+                        data: [stats.home, stats.business, stats.myself, stats.invest, stats.bad],
+                        backgroundColor: ['#3b82f6', '#a855f7', '#ec4899', '#10b981', '#ef4444'],
+                        borderRadius: 12
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+                }
+            });
+
+            const ctxBad = document.getElementById('badChart').getContext('2d');
+            badChart = new Chart(ctxBad, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Úteis', 'Bad Decisions'],
+                    datasets: [{
+                        data: [(stats.home + stats.business + stats.myself + stats.invest), stats.bad],
+                        backgroundColor: ['#e2e8f0', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { cutout: '80%', plugins: { legend: { display: false } } }
+            });
+        }
+
+        function updateCharts() {
+            mainChart.data.datasets[0].data = [stats.home, stats.business, stats.myself, stats.invest, stats.bad];
+            mainChart.update();
+            
+            badChart.data.datasets[0].data = [(stats.home + stats.business + stats.myself + stats.invest), stats.bad];
+            badChart.update();
+        }
+
+        window.onload = function() {
+            initCharts();
+            updateUI();
+            renderBadDecisions();
+            setInterval(checkTimeAlerts, 30000); // Checa a cada 30 segundos
+        }
+    </script>
+</body>
+</html>
